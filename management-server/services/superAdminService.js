@@ -1,18 +1,17 @@
 import User from '../database/models/user';
 import cryptoGen from '../authentication/cryptoGen';
-import emailService from './emailServiceSendgrid';
+import emailService from './emailService';
 import httpStatus from 'http-status-codes';
 import logger from '../logging/logger';
+import jwt from 'jsonwebtoken';
 
 export default {
   async createAdmin(userObj) {
     let result = {};
     try {
-      let user = new User({
+      let user = await new User({
         email: userObj.email,
-        password: cryptoGen.createPasswordHash(
-          await cryptoGen.generateRandomToken(),
-        ),
+        password: cryptoGen.createPasswordHash(userObj.password),
         name: userObj.name,
         permissions: userObj.permissions,
         approved: true,
@@ -30,17 +29,22 @@ export default {
         return result;
       }
 
+      const token = await jwt.sign(
+        { email: user.email },
+        process.env.VENIQA_JWT_SECRET_KEY,
+      );
       // If we have gotten here, the request must be successful, so respond accordingly
       logger.info('A new user has been added', { meta: user });
-      emailService.emailAdminWelcomeInstructions(
-        user.email,
-        user.name,
-        user.passwordResetToken,
-      );
+      // emailService.emailAdminWelcomeInstructions(
+      //   user.email,
+      //   user.name,
+      //   user.passwordResetToken,
+      // );
       let responseObj = {
         email: user.email,
         name: user.name,
         permissions: user.permissions,
+        token: token,
       };
       result = {
         httpStatus: httpStatus.OK,

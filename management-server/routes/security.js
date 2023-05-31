@@ -8,16 +8,10 @@ router.get('/', function (req, res, next) {
   res.render('index', { title: 'Veniqa Security' });
 });
 
-router.route('/login').post(
-  passport.authenticate('local', {
-    successMessage: 'Login Successfully',
-    failureMessage: 'Error in Login',
-  }),
-  (req, res) => {
-    res.status(200).json({ success: 'logged in' });
-  },
-);
-
+router.route('/login').post(securityController.login);
+// router.post('/login', passport.authenticate('login'), (req, res) => {
+//   res.status(200).json({ success: 'logged in' });
+// });
 // router.route('/login').post(
 //   passport.authenticate('login', (_req, res) => {
 //     res.status(200).json({ title: 'Veniqa Security' });
@@ -25,7 +19,7 @@ router.route('/login').post(
 // );
 
 router.get('/isLoggedIn', (req, res, next) => {
-  return res.status(200).send(req.isAuthenticated());
+  return res.status(200).send(req.cookies.session);
 });
 
 router.route('/logout').get(securityController.logout);

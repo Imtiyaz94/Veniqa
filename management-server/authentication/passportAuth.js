@@ -1,5 +1,7 @@
 var LocalStrategy = require('passport-local').Strategy;
-import bCrypt from 'bcrypt-nodejs';
+import passport from 'passport';
+// import bCrypt from 'bcrypt-nodejs';
+import bcrypt from 'bcrypt';
 import HttpStatusCode from 'http-status-codes';
 import User from '../database/models/user';
 import * as _ from 'lodash';
@@ -23,6 +25,7 @@ const checkPermissions = (req, res, validPermissions, done) => {
 
 export default {
   initializePassport(passport) {
+    // console.log('passpo ', passport);
     // Configure Passport authenticated session persistence.
     //
     // In order to restore authentication state across HTTP requests, Passport needs
@@ -32,38 +35,38 @@ export default {
     // deserializing.
 
     // Passport needs to be able to serialize and deserialize users to support persistent login sessions
-    passport.serializeUser(function (user, done) {
+    passport.serializeUser(async function (user, done) {
       //   console.log(user);
       //   logger.debug('serializing user', { meta: user });
       //       console.log('id in serial', user);
       //
-      //       done(null, user._id);
-      process.nextTick(() => {
-        return cb(null, {
-          id: user._id,
-          username: user.email,
-          //   picture: user.picture,
-        });
-      });
+      console.log('user', user);
+      done(null, user._id);
+      // process.nextTick(() => {
+      //   return cb(null, {
+      //     id: user._id,
+      //     username: user.email,
+      //     //   picture: user.picture,
+      //   });
+      // });
     });
 
     passport.deserializeUser(async (id, done) => {
       //   console.log('id in deserial', id);
-      //   try {
-      //     const user = await User.findById(id);
-      //     done(null, user);
-      //   } catch (error) {
-      //     done(error);
-      //   }
-      process.nextTick(function () {
-        return cb(
-          null,
-          User.findById(id, function (err, user) {
-            //   logger.debug('deserializing user', { meta: user });
-            done(err, user);
-          }),
-        );
+      await User.findById(id, function (err, user) {
+        done({
+          error: 'Your login details could not be verified. Please try again.',
+        });
       });
+      // process.nextTick(function () {
+      //   return cb(
+      //     null,
+      //     User.findById(id, function (err, user) {
+      //       //   logger.debug('deserializing user', { meta: user });
+      //       done(err, user);
+      //     }),
+      //   );
+      // });
     });
     //
     //     function (id, done) {
@@ -78,53 +81,96 @@ export default {
     // (`username` and `password`) submitted by the user.  The function must verify
     // that the password is correct and then invoke `cb` with a user object, which
     // will be set at `req.user` in route handlers after authentication.
+    var isValidPassword = (user, password) => {
+      console.log('isValidpass', user.password, password);
+      return bcrypt.compare(password, user.password);
+    };
+
+    // Passport with Local-Strategy
+
     passport.use(
-      // 'login',
+      'login',
       new LocalStrategy(
         {
           usernameField: 'email',
           passwordField: 'password',
         },
-        function (username, password, done) {
-          // check in mongo if a user with username exists or not
-          console.log(username, password);
-          User.findOne({ email: username }, (err, user) => {
-            // In case of any error, return using the done method
-            // console.log('user findone', user);
-            if (err) {
-              return done(err, user.name);
-            }
-            // Username does not exist, log the error and redirect back
-            if (!user) {
-              logger.verbose('User Not Found with username', {
-                meta: username,
-              });
-              return done(null, false);
-            }
-            // User exists but wrong password, log the error
-            if (!isValidPassword(user, password)) {
-              logger.verbose('Invalid Password');
-              return done(null, false); // redirect back to login page
-            }
+        async (username, password, done) => {
+          try {
+            // console.log(username, password);
+            await User.findOne({ email: username }, (err, user) => {
+              // In case of any error, return using the done method
+              // console.log('user findone', user);
+              if (err) {
+                return done(err, user.name);
+              }
+              // Username does not exist, log the error and redirect back
+              if (!user) {
+                logger.verbose('User Not Found with username', {
+                  meta: username,
+                });
+                return done(null, false);
+              }
+              // User exists but wrong password, log the error
+              if (!isValidPassword(user, password)) {
+                logger.verbose('Invalid Password');
+                return done(null, false); // redirect back to login page
+              }
 
-            // If the user's account has not been approved, make sure to prevent login
-            if (!user.approved) {
-              logger.verbose('Account not approved for access');
-              return done(null, false);
-            }
+              // If the user's account has not been approved, make sure to prevent login
+              if (!user.approved) {
+                logger.verbose('Account not approved for access');
+                return done(null, false);
+              }
 
-            // User and password both match, return user from done method
-            // which will be treated like success
-            return done(null, user);
-          });
+              // User and password both match, return user from done method
+              // which will be treated like success
+              return done(null, user);
+            });
+          } catch (error) {
+            return done(error);
+          }
         },
+        //         function (username, password, done) {
+        //           // check in mongo if a user with username exists or not
+        //           console.log(username, password);
+        //           User.findOne({ email: username }, (err, user) => {
+        //             // In case of any error, return using the done method
+        //             // console.log('user findone', user);
+        //             if (err) {
+        //               return done(err, user.name);
+        //             }
+        //             // Username does not exist, log the error and redirect back
+        //             if (!user) {
+        //               logger.verbose('User Not Found with username', {
+        //                 meta: username,
+        //               });
+        //               return done(null, false);
+        //             }
+        //             // User exists but wrong password, log the error
+        //             if (!isValidPassword(user, password)) {
+        //               logger.verbose('Invalid Password');
+        //               return done(null, false); // redirect back to login page
+        //             }
+        //
+        //             // If the user's account has not been approved, make sure to prevent login
+        //             if (!user.approved) {
+        //               logger.verbose('Account not approved for access');
+        //               return done(null, false);
+        //             }
+        //
+        //             // User and password both match, return user from done method
+        //             // which will be treated like success
+        //             return done(null, user);
+        //           });
+        //         },
       ),
     );
 
-    var isValidPassword = (user, password) => {
-      //   console.log('isValidpass', user.password, password);
-      return bCrypt.compareSync(password, user.password);
-    };
+    // var isValidPassword = (user, password) => {
+    //   console.log('isValidpass', user.password, password);
+    //   return bcrypt.compare(password, user.password);
+    // };`
   },
 
   isAuthenticated(req, res, done) {

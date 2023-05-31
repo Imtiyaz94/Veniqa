@@ -7,6 +7,7 @@ export default {
     let response;
     try {
       response = await superAdminService.createAdmin(req.body);
+      // console.log('req body', req.body);
       return res.status(response.httpStatus).send(response);
     } catch (err) {
       logger.error('Error in createAdmin Controller', { meta: err });
